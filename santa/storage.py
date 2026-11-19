@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 CREATE INDEX IF NOT EXISTS outbox_due_idx
   ON outbox(next_attempt_at, id) WHERE state='pending';
+CREATE TABLE IF NOT EXISTS ingress_rates (
+    telegram_id BIGINT PRIMARY KEY,
+    window_started TIMESTAMPTZ NOT NULL DEFAULT now(),
+    hits INTEGER NOT NULL DEFAULT 1
+);
 CREATE TABLE IF NOT EXISTS poll_cursor (
     singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
     last_update_id BIGINT NOT NULL
