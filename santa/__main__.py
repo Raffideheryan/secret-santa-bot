@@ -450,6 +450,8 @@ async def poll_forever(bot: Bot, pool: asyncpg.Pool, vault: Vault,
         errors = 0
         while True:
             try:
+                # Verify the dedicated PostgreSQL session still owns the poller lock.
+                await lock_con.fetchval("SELECT 1")
                 updates = await asyncio.wait_for(
                     bot.get_updates(offset=offset, timeout=20, limit=100,
                                     allowed_updates=["message"]),
@@ -462,6 +464,9 @@ async def poll_forever(bot: Bot, pool: asyncpg.Pool, vault: Vault,
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                # A lost lock-session must terminate this process, not keep polling.
+                if lock_con.is_closed():
+                    raise RuntimeError("Poller lock connection lost; restarting") from exc
                 # Never log Telegram contents, tokens, invite URLs or pair data.
                 LOG.warning("polling error: %s", type(exc).__name__)
                 errors += 1
