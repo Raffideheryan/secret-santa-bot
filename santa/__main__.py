@@ -430,7 +430,22 @@ async def process_update(pool: asyncpg.Pool, vault: Vault, admins: set[int],
             )
             if update.update_id <= last:
                 return
-            await route_message(con, vault, admins, username, tz_name, update)
+            user = update.message.from_user if update.message else None
+            allowed = True
+            if user:
+                hits = await con.fetchval(
+                    """INSERT INTO ingress_rates (telegram_id,window_started,hits)
+                       VALUES ($1,now(),1)
+                       ON CONFLICT (telegram_id) DO UPDATE
+                       SET hits=CASE WHEN ingress_rates.window_started < now()-interval '1 minute'
+                                     THEN 1 ELSE ingress_rates.hits+1 END,
+                           window_started=CASE WHEN ingress_rates.window_started < now()-interval '1 minute'
+                                               THEN now() ELSE ingress_rates.window_started END
+                       RETURNING hits""", user.id,
+                )
+                allowed = hits <= 30
+            if allowed:
+                await route_message(con, vault, admins, username, tz_name, update)
             await con.execute(
                 "UPDATE poll_cursor SET last_update_id=$1 WHERE singleton=TRUE",
                 update.update_id,
@@ -565,6 +580,9 @@ async def schedule_forever(pool: asyncpg.Pool, vault: Vault, admins: set[int]) -
                     await con.execute(
                         "DELETE FROM outbox WHERE state IN ('sent','blocked') "
                         "AND created_at < now()-interval '7 days'"
+                    )
+                    await con.execute(
+                        "DELETE FROM ingress_rates WHERE window_started < now()-interval '2 hours'"
                     )
         except asyncio.CancelledError:
             raise
