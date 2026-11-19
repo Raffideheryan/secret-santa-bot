@@ -102,6 +102,7 @@ The two chat directions are distinct. Text sent in either mode is relayed as **a
 
 - PostgreSQL records participant state, schedules, pair ciphertext, pending outbound messages and Telegram's **last completed update ID**.
 - Inbound Telegram update processing and its cursor checkpoint commit in **one transaction**; a replay doesn't redo a successful command.
+- Public bot messages are throttled to 30 updates per Telegram user per minute, with temporary counters regularly purged.
 - The draw holds a database row lock and writes all assignments + notifications **in the same transaction**. A crash before commit rolls everything back; on restart the scheduled draw resumes from the durable state. A crash after commit **never redraws** the pairs.
 - Outbound messages are encrypted in a durable outbox before the input update is marked complete. A worker retries temporary Telegram outages, with backoff and 429 retry-after handling.
 - Docker Compose restart policy starts the bot after process failure and host reboot, assuming Docker itself is enabled.
