@@ -50,9 +50,9 @@ def token_digest(token: str) -> str:
 
 
 def secure_cycle(ids: list[int]) -> dict[int, int]:
-    """One random directed cycle: no self-assignments or reciprocal pairs for n>=3."""
-    if len(ids) < 3 or len(set(ids)) != len(ids):
-        raise ValueError("At least three unique participants required")
+    """One random directed cycle: no self-assignments or reciprocal pairs for n>=4."""
+    if len(ids) < 4 or len(set(ids)) != len(ids):
+        raise ValueError("At least four unique participants required")
     shuffled = ids.copy()
     secrets.SystemRandom().shuffle(shuffled)
     return {shuffled[i]: shuffled[(i + 1) % len(shuffled)] for i in range(len(shuffled))}
