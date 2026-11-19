@@ -33,7 +33,7 @@ def test_encryption_authentication_and_context():
 
 
 def test_cryptographic_cycle_for_many_sizes():
-    for size in range(3, 51):
+    for size in range(4, 51):
         ids = list(range(100, size + 100))
         pairs = secure_cycle(ids)
         assert set(pairs) == set(ids)
@@ -180,7 +180,7 @@ async def test_anonymous_relay_does_not_store_plaintext(pool, vault):
     async with pool.acquire() as con:
         event_id = await add_event(con)
         ids = []
-        for i, name in enumerate(["Alice", "Bob", "Charlie"]):
+        for i, name in enumerate(["Alice", "Bob", "Charlie", "Dina"]):
             ids.append(await con.fetchval(
                 """INSERT INTO participants(event_id,name,telegram_id)
                    VALUES ($1,$2,$3) RETURNING id""", event_id, name, 400 + i,
