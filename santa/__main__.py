@@ -5,7 +5,8 @@ import asyncio
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import asyncpg
 from aiogram import Bot
@@ -89,10 +90,12 @@ async def route_message(con: asyncpg.Connection, vault: Vault, admins: set[int],
         # Don't echo sensitive content into groups.
         return
     raw = msg.text or ""
-    first, _, rest = raw.partition(" ")
+    parts = raw.split(maxsplit=1)
+    first = parts[0] if parts else ""
+    rest = parts[1] if len(parts) > 1 else ""
     cmd = first.split("@")[0].lower() if first.startswith("/") else ""
     args = rest.strip()
-    event = await latest_event(con)
+    event = await con.fetchrow("SELECT * FROM events ORDER BY id DESC LIMIT 1 FOR UPDATE")
     event_id = event["id"] if event else None
     reply = Replies(con, vault, update.update_id, chat_id, event_id)
     is_admin = tg_id in admins
@@ -206,7 +209,7 @@ async def route_message(con: asyncpg.Connection, vault: Vault, admins: set[int],
             lines = [
                 f"🎄 {event['title']} — {event['status']}",
                 f"Registered: {registered}/{len(people)}",
-                f"Draw: {event['draw_at'].astimezone(__import__('zoneinfo').ZoneInfo(event['timezone'])).strftime('%Y-%m-%d %H:%M')} ({event['timezone']})",
+                f"Draw: {event['draw_at'].astimezone(ZoneInfo(event['timezone'])).strftime('%Y-%m-%d %H:%M')} ({event['timezone']})",
                 "Pair identities are NEVER shown here.",
             ]
             lines += [
@@ -269,7 +272,7 @@ async def route_message(con: asyncpg.Connection, vault: Vault, admins: set[int],
                     lines.append(
                         f"{person['name']}: https://t.me/{bot_username}?start={token}"
                     )
-            await reply.say_lines(lines or ["No pending invitations."])
+            await reply.say_lines(lines if len(lines) > 1 else ["No pending invitations."])
             return
 
         if cmd == "/remove":
