@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import asyncpg
 import pytest
+import pytest_asyncio
 
 from santa.core import (
     Vault, local_datetime_to_utc, new_encryption_key, new_invite_token,
@@ -60,7 +61,7 @@ def vault():
     return Vault(new_encryption_key())
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def pool():
     pool = await asyncpg.create_pool(
         os.environ["DATABASE_URL"], min_size=1, max_size=3
