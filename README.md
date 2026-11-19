@@ -61,7 +61,7 @@ All commands are sent to the bot in a **private chat**.
 
 Draw, exchange and close dates must be strictly increasing, with the draw still in the future.
 
-**B. Add participants** (maximum 50 people, minimum 3 to draw):
+**B. Add participants** (maximum 50 people, minimum 4 to draw):
 
 ~~~text
 /add Anna, David, Maria, Arman, Sona
@@ -82,7 +82,7 @@ Send each personalized URL privately to the intended person. Do not send the lis
 
 **E. Continue** until the close time. Anonymous conversations are possible after the draw. The bot closes automatically and destroys assignments, participant names/Telegram IDs, invitation records and wishlists at the close time. Telegram chat histories and external backups aren't purged by this operation.
 
-After an event closes, organizers may /create another one. Only one event may be active at a time.
+After an event closes, organizers may /create another one. Only one event may be active at a time. With only three participants, each person can mathematically infer the full assignment from their own recipient, so this implementation requires **at least four** (five or more is preferable).
 
 ## 4. Participant flow
 
