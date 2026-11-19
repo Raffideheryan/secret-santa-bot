@@ -121,9 +121,9 @@ async def draw_event(con: asyncpg.Connection, vault: Vault, event_id: int):
         )
         giver, recipient = by_id[giver_id], by_id[recipient_id]
         note = (
-            f"🎅 {event['title']}\\n\\n"
-            f"You are Secret Santa for: {recipient['name']}!\\n"
-            "Your name stays hidden from your recipient.\\n\\n"
+            f"🎅 {event['title']}\n\n"
+            f"You are Secret Santa for: {recipient['name']}!\n"
+            "Your name stays hidden from your recipient.\n\n"
             "Use /to_recipient to write anonymously to them, "
             "and /to_santa to answer your own Santa. "
             "Use /recipient to view your assigned person's wishlist."
