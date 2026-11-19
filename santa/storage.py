@@ -139,17 +139,14 @@ async def draw_event(con: asyncpg.Connection, vault: Vault, event_id: int):
 
 
 async def close_event(con: asyncpg.Connection, vault: Vault, event_id: int) -> bool:
-    """Erase assignments and queued content at close; retain only registration metadata."""
+    """Erase all participants, assignments and queued content when an event closes."""
     event = await con.fetchrow("SELECT * FROM events WHERE id=$1 FOR UPDATE", event_id)
     if event is None or event["status"] == "closed":
         return False
     people = await con.fetch("SELECT telegram_id,id FROM participants WHERE event_id=$1", event_id)
     await con.execute("DELETE FROM outbox WHERE event_id=$1", event_id)
     await con.execute("DELETE FROM assignments WHERE event_id=$1", event_id)
-    await con.execute(
-        """UPDATE participants SET wishlist_enc=NULL, invite_enc=NULL, invite_hash=NULL
-           WHERE event_id=$1""", event_id,
-    )
+    await con.execute("DELETE FROM participants WHERE event_id=$1", event_id)
     await con.execute("UPDATE events SET status='closed' WHERE id=$1", event_id)
     for person in people:
         if person["telegram_id"] is not None:
