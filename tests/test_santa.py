@@ -202,3 +202,66 @@ async def test_anonymous_relay_does_not_store_plaintext(pool, vault):
         assert row["chat_id"] == tg_target
         assert b"What gift" not in row["body_enc"]
         assert "What gift" in vault.open(row["body_enc"], "outbox:relay:101")
+
+
+@pytest.mark.asyncio
+async def test_reply_to_santa_survives_mode_change_and_restart(pool, vault):
+    async with pool.acquire() as con:
+        event_id = await add_event(con)
+        people = []
+        for i, name in enumerate(["Anna", "Boris", "Carol", "David"]):
+            people.append(await con.fetchval(
+                """INSERT INTO participants(event_id,name,telegram_id)
+                   VALUES ($1,$2,$3) RETURNING id""", event_id, name, 700+i,
+            ))
+        async with con.transaction():
+            await draw_event(con, vault, event_id)
+        santa_id = await find_santa(con, vault, event_id, people[0])
+        santa_chat = await con.fetchval(
+            "SELECT telegram_id FROM participants WHERE id=$1", santa_id
+        )
+    await process_update(
+        pool, vault, set(), "SecretSantaTestBot", "Asia/Yerevan",
+        fake_update(201, 700, "/to_santa")
+    )
+    await process_update(
+        pool, vault, set(), "SecretSantaTestBot", "Asia/Yerevan",
+        fake_update(202, 700, "Thank you, Santa!")
+    )
+    # Replay after a bot reboot must not insert a second message.
+    await process_update(
+        pool, vault, set(), "SecretSantaTestBot", "Asia/Yerevan",
+        fake_update(202, 700, "Thank you, Santa!")
+    )
+    async with pool.acquire() as con:
+        row = await con.fetchrow("SELECT * FROM outbox WHERE dedupe_key='relay:202'")
+        assert row["chat_id"] == santa_chat
+        assert "Anonymous reply" in vault.open(row["body_enc"], "outbox:relay:202")
+        assert await con.fetchval(
+            "SELECT count(*) FROM outbox WHERE dedupe_key='relay:202'"
+        ) == 1
+
+
+@pytest.mark.asyncio
+async def test_outbox_lease_recovers_after_worker_crash(pool, vault):
+    from santa.storage import enqueue
+    async with pool.acquire() as con:
+        event_id = await add_event(con)
+        await enqueue(con, vault, 555, "secret pending delivery", "lease:test", event_id)
+        await con.execute(
+            """UPDATE outbox SET attempts=1,
+               locked_until=now()-interval '1 second'
+               WHERE dedupe_key='lease:test'"""
+        )
+        # Same recovery condition used by delivery worker (expired lease).
+        row = await con.fetchrow(
+            """UPDATE outbox SET locked_until=now()+interval '2 minutes',
+               attempts=attempts+1 WHERE id=(
+                   SELECT id FROM outbox WHERE state='pending'
+                     AND next_attempt_at<=now()
+                     AND (locked_until IS NULL OR locked_until<now())
+                   ORDER BY next_attempt_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
+               ) RETURNING *"""
+        )
+        assert row and row["attempts"] == 2
+        assert vault.open(row["body_enc"], "outbox:lease:test") == "secret pending delivery"
