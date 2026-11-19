@@ -38,7 +38,9 @@ ADMIN_HELP = (
     "/invites — regenerate the pending invite-link list (without rotating tokens)\n"
     "/status — who has joined, without revealing pairs\n"
     "/remove NAME — remove a participant before the draw\n"
-    "/draw — perform the one-time draw now if everyone has joined"
+    "/draw — perform the one-time draw now if everyone has joined\n"
+    "/health — show delivery queue statistics\n"
+    "/retry_failed — retry blocked notifications after issues are fixed"
 )
 MAX_PEOPLE = 50
 
@@ -193,12 +195,45 @@ async def route_message(con: asyncpg.Connection, vault: Vault, admins: set[int],
             await reply.say("Welcome! Request your personal invitation link from the organizer.\n" + HELP)
         return
 
-    if cmd in ("/add", "/invites", "/status", "/remove", "/draw"):
+    if cmd in ("/add", "/invites", "/status", "/remove", "/draw", "/health", "/retry_failed"):
         if not is_admin:
             await reply.say("Only the organizer can use this command.")
             return
         if not event or event["status"] == "closed":
             await reply.say("No active event. Use /create first.")
+            return
+
+        if cmd == "/health":
+            counts = await con.fetch(
+                """SELECT state, count(*) AS total FROM outbox
+                   WHERE event_id=$1 GROUP BY state""", event_id,
+            )
+            metrics = {row["state"]: row["total"] for row in counts}
+            oldest = await con.fetchval(
+                """SELECT min(created_at) FROM outbox
+                   WHERE event_id=$1 AND state='pending'""", event_id,
+            )
+            age = (
+                str(int((datetime.now(timezone.utc) - oldest).total_seconds()))
+                + " seconds" if oldest else "none"
+            )
+            await reply.say(
+                f"Health for {event['title']}:\n"
+                f"Pending deliveries: {metrics.get('pending', 0)}\n"
+                f"Blocked deliveries: {metrics.get('blocked', 0)}\n"
+                f"Oldest pending: {age}\n"
+                f"Draw status: {event['status']}\n"
+                "No sender/recipient relationships are shown."
+            )
+            return
+
+        if cmd == "/retry_failed":
+            result = await con.execute(
+                """UPDATE outbox SET state='pending',locked_until=NULL,
+                   next_attempt_at=now() WHERE event_id=$1 AND state='blocked'""",
+                event_id,
+            )
+            await reply.say(f"✅ Re-queued {result.split()[-1]} blocked messages.")
             return
 
         if cmd == "/status":
