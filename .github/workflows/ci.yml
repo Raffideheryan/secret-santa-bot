@@ -27,4 +27,4 @@ jobs:
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m compileall -q santa tests
       - run: python -m pytest -q
-      - run: docker compose --env-file .env.example config --quiet
+      - run: cp .env.example .env && docker compose config --quiet
