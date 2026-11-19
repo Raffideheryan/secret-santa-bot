@@ -110,8 +110,8 @@ async def draw_event(con: asyncpg.Connection, vault: Vault, event_id: int):
     people = await con.fetch(
         "SELECT * FROM participants WHERE event_id=$1 ORDER BY id", event_id
     )
-    if len(people) < 3:
-        return "At least three participants are required."
+    if len(people) < 4:
+        return "At least four participants are required."
     if any(p["telegram_id"] is None for p in people):
         return "Not everyone has registered yet. Existing assignments were not changed."
     pairs = secure_cycle([p["id"] for p in people])
