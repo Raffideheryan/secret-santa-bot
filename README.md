@@ -80,7 +80,7 @@ Send each personalized URL privately to the intended person. Do not send the lis
 
 **D. Assign automatically** at the chosen draw date/time, **only when all listed people have joined**. If registration is incomplete, the bot alerts organizers and keeps trying. When the missing people join (or the organizer removes them before the draw), the bot safely completes it. Or use /draw earlier after all have joined. The draw is immutable and can't be repeated.
 
-**E. Continue** until the close time. Anonymous conversations are possible after the draw. The bot closes automatically and destroys stored encrypted assignments and wishlists at the close time. Telegram chat histories and external backups aren't purged by this operation.
+**E. Continue** until the close time. Anonymous conversations are possible after the draw. The bot closes automatically and destroys assignments, participant names/Telegram IDs, invitation records and wishlists at the close time. Telegram chat histories and external backups aren't purged by this operation.
 
 After an event closes, organizers may /create another one. Only one event may be active at a time.
 
@@ -106,7 +106,7 @@ The two chat directions are distinct. Text sent in either mode is relayed as **a
 - Outbound messages are encrypted in a durable outbox before the input update is marked complete. A worker retries temporary Telegram outages, with backoff and 429 retry-after handling.
 - Docker Compose restart policy starts the bot after process failure and host reboot, assuming Docker itself is enabled.
 - /health (organizer-only) shows pending/blocked delivery counts. If a participant blocked the bot, ask them to unblock/start it, then use /retry_failed.
-- At event close, historical queued event messages are removed, assignment records and wishlists are deleted, and closure notifications are queued. Sent-message contents are zeroed in the DB; old outbox metadata expires after seven days.
+- At event close, historical queued event messages are removed, all participant records and assignments are deleted, and closure notifications are queued. Sent-message contents are zeroed in the DB; old outbox metadata expires after seven days.
 
 **Limitations you must understand:**
 
